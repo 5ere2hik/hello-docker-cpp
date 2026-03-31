@@ -1,0 +1,19 @@
+# Сборка (CMake)
+/build/
+/out/
+/.cache/
+
+# Специфические файлы VS Code
+/.vscode/
+# Исключение: оставляем настройки контейнера
+!/.devcontainer/
+
+# Временные файлы компилятора и ОС
+*.o
+*.obj
+*.exe
+*.out
+.DS_Store
+
+# GitHub CLI и прочие логи
+.python_history
