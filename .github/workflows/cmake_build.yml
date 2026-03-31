@@ -23,3 +23,6 @@ jobs:
 
     - name: Run HelloWorld
       run: ./build/hello_exec
+
+    - name: Run Tests
+      run: ctest --test-dir build --output-on-failure
