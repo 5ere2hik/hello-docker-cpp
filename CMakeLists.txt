@@ -5,7 +5,10 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Declare sources and include directory variables
 set(SOURCES src/main.cpp)
-set(INCLUDES ${CMAKE_SOURCE_DIR}/src/include)
+list(APPEND SOURCES src/pipeline.cpp)
+
+set(INCLUDES ${CMAKE_SOURCE_DIR}/src)
+list(APPEND INCLUDES ${CMAKE_SOURCE_DIR}/src/include)
 
 # --- Подключаем Catch2 из GitHub ---
 include(FetchContent)
