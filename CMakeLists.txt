@@ -3,6 +3,10 @@ project(HelloWorld CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
+# Declare sources and include directory variables
+set(SOURCES src/main.cpp)
+set(INCLUDES ${CMAKE_SOURCE_DIR}/src/include)
+
 # --- Подключаем Catch2 из GitHub ---
 include(FetchContent)
 FetchContent_Declare(
@@ -13,11 +17,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 
 # --- Основное приложение ---
-add_executable(hello_exec src/main.cpp)
+add_executable(hello_exec ${SOURCES})
+target_include_directories(hello_exec PRIVATE ${INCLUDES})
 
 # --- Тесты ---
 add_executable(unit_tests src/tests/tests.cpp)
 target_link_libraries(unit_tests PRIVATE Catch2::Catch2WithMain)
+target_include_directories(unit_tests PRIVATE ${INCLUDES})
 
 # Регистрация тестов для запуска через 'ctest'
 enable_testing()
