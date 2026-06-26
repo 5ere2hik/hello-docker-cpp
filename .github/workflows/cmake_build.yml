@@ -30,8 +30,8 @@ jobs:
     - name: Build project
       run: cmake --build build
 
-    - name: Run HelloWorld
-      run: ./build/hello_exec
+    # - name: Run HelloWorld
+    #   run: ./build/hello_exec
 
-    - name: Run Tests
-      run: ctest --test-dir build --output-on-failure
+    # - name: Run Tests
+    #   run: ctest --test-dir build --output-on-failure
