@@ -10,6 +10,14 @@ list(APPEND SOURCES src/pipeline.cpp)
 set(INCLUDES ${CMAKE_SOURCE_DIR}/src)
 list(APPEND INCLUDES ${CMAKE_SOURCE_DIR}/src/include)
 
+# Try to find FFmpeg libraries via pkg-config so we can include and link them
+find_package(PkgConfig REQUIRED)
+
+# Search for libavformat, libavcodec and libavutil
+pkg_check_modules(AVFORMAT REQUIRED libavformat)
+pkg_check_modules(AVCODEC REQUIRED libavcodec)
+pkg_check_modules(AVUTIL REQUIRED libavutil)
+
 # --- Подключаем Catch2 из GitHub ---
 include(FetchContent)
 FetchContent_Declare(
@@ -21,7 +29,14 @@ FetchContent_MakeAvailable(Catch2)
 
 # --- Основное приложение ---
 add_executable(hello_exec ${SOURCES})
+# include our project headers
 target_include_directories(hello_exec PRIVATE ${INCLUDES})
+# include FFmpeg include directories discovered via pkg-config
+target_include_directories(hello_exec PRIVATE ${AVFORMAT_INCLUDE_DIRS} ${AVCODEC_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS})
+# add any required compiler flags from pkg-config
+target_compile_options(hello_exec PRIVATE ${AVFORMAT_CFLAGS_OTHER} ${AVCODEC_CFLAGS_OTHER} ${AVUTIL_CFLAGS_OTHER})
+# link FFmpeg libraries
+target_link_libraries(hello_exec PRIVATE ${AVFORMAT_LIBRARIES} ${AVCODEC_LIBRARIES} ${AVUTIL_LIBRARIES})
 
 # --- Тесты ---
 add_executable(unit_tests src/tests/tests.cpp)
