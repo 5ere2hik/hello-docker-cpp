@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include "pipeline.h"
 #include <thread>
 #include <chrono>
 
@@ -9,9 +10,8 @@ extern "C" {
 #include <libavutil/error.h>
 }
 
-void openStream()
+void openStream(const std::string &url)
 {
-    const std::string url = "rtsp://192.168.0.171:8554/mystream";
     std::cout << "Opening RTSP stream: " << url << std::endl;
 
     // Initialize network components (required for RTSP)

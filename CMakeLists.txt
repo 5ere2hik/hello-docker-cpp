@@ -38,6 +38,17 @@ target_compile_options(hello_exec PRIVATE ${AVFORMAT_CFLAGS_OTHER} ${AVCODEC_CFL
 # link FFmpeg libraries
 target_link_libraries(hello_exec PRIVATE ${AVFORMAT_LIBRARIES} ${AVCODEC_LIBRARIES} ${AVUTIL_LIBRARIES})
 
+# Default stream URL for runtime config
+set(DEFAULT_STREAM_URL "rtsp://192.168.0.171:8554/mystream")
+
+# Generate a runtime config near the executable with default stream URL
+configure_file(${CMAKE_SOURCE_DIR}/src/config.yml.in ${CMAKE_BINARY_DIR}/config.yml @ONLY)
+add_custom_command(TARGET hello_exec POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_BINARY_DIR}/config.yml $<TARGET_FILE_DIR:hello_exec>/config.yml
+  COMMENT "Copy config.yml next to hello_exec"
+)
+
 # --- Тесты ---
 add_executable(unit_tests src/tests/tests.cpp)
 target_link_libraries(unit_tests PRIVATE Catch2::Catch2WithMain)

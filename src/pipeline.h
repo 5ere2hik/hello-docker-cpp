@@ -1,1 +1,3 @@
-void openStream();
+#include <string>
+
+void openStream(const std::string &url);
