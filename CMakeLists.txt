@@ -27,6 +27,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
+# RapidYAML for YAML parsing at runtime
+FetchContent_Declare(
+  RapidYAML
+  GIT_REPOSITORY https://github.com/biojppm/rapidyaml.git
+  GIT_TAG        master
+)
+FetchContent_MakeAvailable(RapidYAML)
+
 # --- Основное приложение ---
 add_executable(hello_exec ${SOURCES})
 # include our project headers
@@ -37,6 +45,7 @@ target_include_directories(hello_exec PRIVATE ${AVFORMAT_INCLUDE_DIRS} ${AVCODEC
 target_compile_options(hello_exec PRIVATE ${AVFORMAT_CFLAGS_OTHER} ${AVCODEC_CFLAGS_OTHER} ${AVUTIL_CFLAGS_OTHER})
 # link FFmpeg libraries
 target_link_libraries(hello_exec PRIVATE ${AVFORMAT_LIBRARIES} ${AVCODEC_LIBRARIES} ${AVUTIL_LIBRARIES})
+target_link_libraries(hello_exec PRIVATE ryml)
 
 # Default stream URL for runtime config
 set(DEFAULT_STREAM_URL "rtsp://192.168.0.171:8554/mystream")

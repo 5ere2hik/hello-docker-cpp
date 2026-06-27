@@ -4,23 +4,27 @@
 #include <sstream>
 #include <string>
 
+// RapidYAML
+#include <ryml.hpp>
+#include <ryml_std.hpp>
+
 static std::string read_stream_url_from_config(const std::string &path)
 {
     std::ifstream ifs(path);
     if (!ifs.is_open()) return std::string();
-    std::string line;
-    while (std::getline(ifs, line)) {
-        // Look for a line like: stream_url: "rtsp://..."
-        auto pos = line.find("stream_url:");
-        if (pos != std::string::npos) {
-            auto value = line.substr(pos + std::size("stream_url:"));
-            // trim
-            size_t start = value.find_first_not_of(" \t\"'");
-            size_t end = value.find_last_not_of(" \t\"'");
-            if (start == std::string::npos || end == std::string::npos) return std::string();
-            return value.substr(start, end - start + 1);
-        }
+    std::string yaml((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+
+    // Parse YAML using RapidYAML
+    try {
+        auto tree = ryml::parse_in_arena(c4::to_csubstr(yaml));
+        auto root = tree.rootref();
+        auto node = root["stream_url"];
+        //return ryml::emitrs_yaml<std::string>(node);
+        return std::string(node.val().str, node.val().len);
+    } catch (...) {
+        // Fall through to return empty on parse errors
     }
+
     return std::string();
 }
 
