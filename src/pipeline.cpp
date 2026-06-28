@@ -6,6 +6,7 @@
 
 // FFmpeg headers
 extern "C" {
+#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/error.h>
 }
@@ -71,25 +72,65 @@ void openStream(const std::string &url)
     std::cout << "Codec ID: " << codecpar->codec_id << " (expected HEVC => " << AV_CODEC_ID_HEVC << ")" << std::endl;
     std::cout << "Width x Height: " << codecpar->width << " x " << codecpar->height << std::endl;
 
-    // Read packets from the stream for a short demo period
-    AVPacket *pkt = av_packet_alloc();
-    if (!pkt) {
-        std::cerr << "Failed to allocate AVPacket." << std::endl;
+    const AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
+    if (!codec) {
+        std::cerr << "Could not find decoder for codec id " << codecpar->codec_id << std::endl;
         avformat_close_input(&fmt_ctx);
         av_dict_free(&opts);
         avformat_network_deinit();
         return;
     }
 
-    const int max_packets = 200; // read up to this many packets in this demo
+    AVCodecContext* dec_ctx = avcodec_alloc_context3(codec);
+    if (!dec_ctx) {
+        std::cerr << "Failed to allocate decoder context." << std::endl;
+        avformat_close_input(&fmt_ctx);
+        av_dict_free(&opts);
+        avformat_network_deinit();
+        return;
+    }
+
+    if (avcodec_parameters_to_context(dec_ctx, codecpar) < 0) {
+        std::cerr << "Failed to copy codec parameters to decoder context." << std::endl;
+        avcodec_free_context(&dec_ctx);
+        avformat_close_input(&fmt_ctx);
+        av_dict_free(&opts);
+        avformat_network_deinit();
+        return;
+    }
+
+    if (avcodec_open2(dec_ctx, codec, nullptr) < 0) {
+        std::cerr << "Failed to open decoder." << std::endl;
+        avcodec_free_context(&dec_ctx);
+        avformat_close_input(&fmt_ctx);
+        av_dict_free(&opts);
+        avformat_network_deinit();
+        return;
+    }
+
+    // Read packets from the stream for a short demo period
+    AVPacket* pkt = av_packet_alloc();
+    AVFrame* frame = av_frame_alloc();
+    if (!pkt || !frame) {
+        std::cerr << "Failed to allocate packet/frame." << std::endl;
+        av_frame_free(&frame);
+        av_packet_free(&pkt);
+        avcodec_free_context(&dec_ctx);
+        avformat_close_input(&fmt_ctx);
+        av_dict_free(&opts);
+        avformat_network_deinit();
+        return;
+    }
+
+    const int max_packets = 400; // read up to this many packets in this demo
     int packets_read = 0;
+    bool have_keyframe = false;
 
     std::cout << "Starting read loop (will read up to " << max_packets << " packets)" << std::endl;
 
     while (packets_read < max_packets) {
         ret = av_read_frame(fmt_ctx, pkt);
         if (ret < 0) {
-            // end of stream or error
             if (ret == AVERROR_EOF) {
                 std::cout << "End of stream reached." << std::endl;
             } else {
@@ -100,24 +141,74 @@ void openStream(const std::string &url)
         }
 
         if (pkt->stream_index == video_stream_index) {
-            // For now just print some basic packet info. In a real app you'd send
-            // the packet to a decoder or write it to a file/socket.
             std::cout << "Packet: pts=" << pkt->pts << " dts=" << pkt->dts
                       << " size=" << pkt->size << std::endl;
+
+            const bool is_keyframe = (pkt->flags & AV_PKT_FLAG_KEY) != 0;
+            if (!have_keyframe && !is_keyframe) {
+                std::cout << "Skipping packet until keyframe arrives." << std::endl;
+            } else {
+                if (!have_keyframe && is_keyframe) {
+                    std::cout << "Keyframe received. Starting decode." << std::endl;
+                    have_keyframe = true;
+                }
+
+                if (have_keyframe) {
+                    ret = avcodec_send_packet(dec_ctx, pkt);
+                    if (ret < 0) {
+                        av_strerror(ret, errbuf, sizeof(errbuf));
+                        std::cerr << "Failed to send packet to decoder: " << errbuf << std::endl;
+                    } else {
+                        while (true) {
+                            ret = avcodec_receive_frame(dec_ctx, frame);
+                            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                                break;
+                            }
+                            if (ret < 0) {
+                                av_strerror(ret, errbuf, sizeof(errbuf));
+                                std::cerr << "Failed to receive frame from decoder: " << errbuf << std::endl;
+                                break;
+                            }
+
+                            std::cout << "Decoded frame: width=" << frame->width
+                                      << " height=" << frame->height
+                                      << " pts=" << frame->pts << std::endl;
+                        }
+                    }
+                }
+            }
+
             ++packets_read;
         }
 
         av_packet_unref(pkt);
 
-        // Be cooperative: sleep a tiny bit to avoid busy-looping
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+
+    avcodec_send_packet(dec_ctx, nullptr);
+    while (true) {
+        ret = avcodec_receive_frame(dec_ctx, frame);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break;
+        }
+        if (ret < 0) {
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            std::cerr << "Failed during decoder flush: " << errbuf << std::endl;
+            break;
+        }
+
+        std::cout << "Flushed frame: width=" << frame->width
+                  << " height=" << frame->height
+                  << " pts=" << frame->pts << std::endl;
     }
 
     std::cout << "Read loop finished, closing stream." << std::endl;
 
-    // Clean up
+    av_frame_free(&frame);
+    av_packet_free(&pkt);
+    avcodec_free_context(&dec_ctx);
     avformat_close_input(&fmt_ctx);
     av_dict_free(&opts);
-    av_packet_free(&pkt);
     avformat_network_deinit();
 }
